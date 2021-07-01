@@ -1,203 +1,229 @@
-## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    header = list(row = 1),
-#    variables =
-#      list(territories =
-#             list(type = "id", col = 1),
-#           year =
-#             list(type = "id", col = 2),
-#           commodities =
-#             list(type = "id", col = 3),
-#           harvested =
-#             list(type = "measured", unit = "ha", factor = 1, col = 4),
-#           production =
-#             list(type = "measured", unit = "t", factor = 1, col = 5))))
+## ---- include = FALSE---------------------------------------------------------
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+options(knitr.kable.NA = '.')
+library(tabshiftr)
+library(knitr)
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$listed_column_wide)
+
+## -----------------------------------------------------------------------------
+schema <- setIDVar(name = "territories", columns = 1)
+
+## -----------------------------------------------------------------------------
+validateSchema(schema = schema, input = input) %>% 
+  getIDVars(input = input)
+
+## -----------------------------------------------------------------------------
+schema <- schema %>% 
+  setIDVar(name = "year", columns = 2) %>%
+  setIDVar(name = "commodities", columns = c(6, 7), rows = 1)
+
+## -----------------------------------------------------------------------------
+validateSchema(schema = schema, input = input) %>% 
+  getIDVars(input = input)
+
+## -----------------------------------------------------------------------------
+schema <- schema %>% 
+  setObsVar(name = "harvested", columns = c(6, 7), key = 4, value = "harvested") %>%
+  setObsVar(name = "production", columns = c(6, 7), key = 4, value = "production")
+
+## -----------------------------------------------------------------------------
+validateSchema(schema = schema, input = input) %>% 
+  getObsVars(input = input)
+
+## -----------------------------------------------------------------------------
+schema # has a pretty print function
+
+reorganise(input = input, schema = schema)
+
+## ---- eval=F------------------------------------------------------------------
+#  input <- read_csv(file = ...,
+#                    col_names = FALSE,
+#                    col_types = cols(.default = "c"))
+
+## -----------------------------------------------------------------------------
+kable(tabs2shift$tidy)
+
+## -----------------------------------------------------------------------------
+schema <-
+  setIDVar(name = "territories", columns = 1) %>%
+  setIDVar(name = "year", columns = 2) %>%
+  setIDVar(name = "commodities", columns = 3) %>%
+  setObsVar(name = "harvested", columns = 5) %>%
+  setObsVar(name = "production", columns = 6, factor = 0.1)
+
+reorganise(input = tabs2shift$tidy, schema = schema)
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$split_column)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    header = list(row = c(1, 2)),
-#    variables =
-#      list(territories =
-#             list(type = "id", col = 1),
-#           year =
-#             list(type = "id", col = 2),
-#           commodities =
-#             list(type = "id", row = 1, col = c(3, 5)),
-#           harvested =
-#             list(type = "measured", unit = "ha", factor = 1,
-#                  row = 2, col = c(3, 5)),
-#           production =
-#             list(type = "measured", unit = "t", factor = 1,
-#                  row = 2, col = c(4, 6)))))
+#  schema <-
+#    setIDVar(name = "territories", columns = 1) %>%
+#    setIDVar(name = "year", columns = c(2, 4), merge = " ") %>%
+#    setIDVar(name = "commodities", columns = 5) %>%
+#    setObsVar(name = "harvested", columns = 6) %>%
+#    setObsVar(name = "production", columns = 7)
+
+## -----------------------------------------------------------------------------
+kable(tabs2shift$merged_column)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    header = list(row = c(1:3)),
-#    variables =
-#      list(territories =
-#             list(type = "id", col = 1),
-#           year =
-#             list(type = "id", row = 1, col = c(2, 6)),
-#           commodities =
-#             list(type = "id", row = 2, col = c(2, 4, 6, 8)),
-#           harvested =
-#             list(type = "measured", unit = "ha", factor = 1,
-#                  row = 3, col = c(2, 4, 6, 8)),
-#           production =
-#             list(type = "measured", unit = "t", factor = 1,
-#                  row = 3, col = c(3, 5, 7, 9)))))
+#  schema <-
+#    setIDVar(name = "territories", columns = 1) %>%
+#    setIDVar(name = "year", columns = 2, split = ".+?(?=_)") %>%
+#    setIDVar(name = "commodities", columns = 2, split = "(?<=\\_).*") %>%
+#    setObsVar(name = "harvested", columns = 4) %>%
+#    setObsVar(name = "production", columns = 5)
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$implicit_variable)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    header = list(row = 1),
-#    variables =
-#      list(territories =
-#             list(type = "id", col = 1),
-#           year =
-#             list(type = "id", split = ".+?(?=_)", col = 2),
-#           commodities =
-#             list(type = "id", split = "(?<=\\_).*", col = 2),
-#           harvested =
-#             list(type = "measured", unit = "ha", factor = 1, col = 3),
-#           production =
-#             list(type = "measured", unit = "t", factor = 1, col = 4))))
+#  schema <- setCluster(id = "territories",
+#                       left = 1, top = 4) %>%
+#    setIDVar(name = "territories", value = "unit 1") %>%
+#    setIDVar(name = "year", columns = 4) %>%
+#    setIDVar(name = "commodities", columns = 1) %>%
+#    setObsVar(name = "harvested", columns = 2) %>%
+#    setObsVar(name = "production", columns = 3)
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$one_wide_id)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    clusters =
-#      list(row = 2, col = 1, id = "territories"),
-#    header = list(row = 1, rel = TRUE),
-#    variables =
-#      list(territories =
-#             list(type = "id", value = "unit 1"),
-#           year =
-#             list(type = "id", col = 4, rel = TRUE),
-#           commodities =
-#             list(type = "id", col = 1, rel = TRUE),
-#           harvested =
-#             list(type = "measured", unit = "ha", factor = 1,
-#                  col = 2, rel = TRUE),
-#           production =
-#             list(type = "measured", unit = "t", factor = 1,
-#                  col = 3, rel = TRUE))))
+#  schema <-
+#    setIDVar(name = "territories", columns = 1) %>%
+#    setIDVar(name = "year", columns = 3) %>%
+#    setIDVar(name = "commodities", columns = c(4, 6), rows = 1) %>%
+#    setObsVar(name = "harvested", columns = c(4, 6), top = 2) %>%
+#    setObsVar(name = "production", columns = c(5, 7), top = 2)
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$wide_obs)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    header = list(row = 1),
-#    variables =
-#      list(territories =
-#             list(type = "id", col = 1),
-#           year =
-#             list(type = "id", col = 2),
-#           commodities =
-#             list(type = "id", col = 3),
-#           harvested =
-#             list(type = "measured", unit = "ha", factor = 1,
-#                  col = 5, key = "dimension", value = "harvested"),
-#           production =
-#             list(type = "measured", unit = "t", factor = 1,
-#                  col = 5, key = "dimension", value = "production"))))
+#  schema <-
+#    setIDVar(name = "territories", columns = 1) %>%
+#    setIDVar(name = "year", columns = 2) %>%
+#    setIDVar(name = "commodities", columns = c(3:6), rows = 2) %>%
+#    setObsVar(name = "harvested", columns = c(3, 4)) %>%
+#    setObsVar(name = "production", columns = c(5, 6))
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$two_wide_id)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#   makeSchema(list(
-#     header = list(row = 1),
-#     variables =
-#       list(territories =
-#              list(type = "id", col = 1),
-#            year =
-#              list(type = "id", row = NULL, col = 2),
-#            commodities =
-#              list(type = "id", row = 1, col = c(4, 5)),
-#            harvested =
-#              list(type = "measured", unit = "ha", factor = 1,
-#                   col = c(4, 5), key = "dimension", value = "harvested"),
-#            production =
-#              list(type = "measured", unit = "t", factor = 1,
-#                   col = c(4, 5), key = "dimension", value = "production"))))
+#  schema <-
+#    setIDVar(name = "territories", columns = 1) %>%
+#    setIDVar(name = "year", columns = c(2, 6), rows = 1) %>%
+#    setIDVar(name = "commodities", columns = c(2, 4, 6, 8), rows = 2) %>%
+#    setObsVar(name = "harvested", columns = c(2, 4, 6, 8), top = 3) %>%
+#    setObsVar(name = "production", columns = c(3, 5, 7, 9), top = 3)
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$listed_column)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    clusters =
-#      list(row = 2, col = c(2, 5), id = "territories"),
-#    header = list(row = 1),
-#    variables =
-#      list(territories =
-#             list(type = "id", row = 2, col = c(2, 5)),
-#           year =
-#             list(type = "id", col = 1),
-#           commodities =
-#             list(type = "id", col = c(2, 5)),
-#           harvested =
-#             list(type = "measured", col = c(3, 6), unit = "ha", factor = 1),
-#           production =
-#             list(type = "measured", col = c(4, 7), unit = "t", factor = 1))))
+#  schema <-
+#    setIDVar(name = "territories", columns = 1) %>%
+#    setIDVar(name = "year", columns = 2) %>%
+#    setIDVar(name = "commodities", columns = 3) %>%
+#    setObsVar(name = "harvested", columns = 7, key = 6, value = "harvested") %>%
+#    setObsVar(name = "production", columns = 7, key = 6, value = "production")
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$listed_column_wide)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    clusters =
-#      list(row = c(2, 7), col = 2, height = 4, id = "territories"),
-#    header = list(row = 1),
-#    variables =
-#      list(territories =
-#             list(type = "id", row = c(2, 9), col = 1),
-#           year =
-#             list(type = "id", col = 1, rel = TRUE),
-#           commodities =
-#             list(type = "id", col = 2, rel = TRUE),
-#           harvested =
-#             list(type = "measured", col = 3, unit = "ha", factor = 1, rel = TRUE),
-#           production =
-#             list(type = "measured", col = 4, unit = "t", factor = 1, rel = TRUE))))
+#  schema <-
+#    setIDVar(name = "territories", columns = 1) %>%
+#    setIDVar(name = "year", columns = 2) %>%
+#    setIDVar(name = "commodities", columns = c(6, 7), rows = 1) %>%
+#    setObsVar(name = "harvested", columns = c(6, 7), key = 4, value = "harvested") %>%
+#    setObsVar(name = "production", columns = c(6, 7), key = 4, value = "production")
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$clusters_horizontal)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  list(clusters =
-#         list(top = c(1, 5, 1), left = c(1, 2, 5),
-#              width = c(3, 5, 2), height = c(4, 5, 3), id = ...),
-#       header = list(row = 1),
-#       variables =
-#         list(territories =
-#                list(type = "id", col = 2, rel = TRUE),
-#              period =
-#                list(type = "id", col = 1, rel = TRUE),
-#              ...))
+#  schema <- setCluster(id = "territories",
+#                       left = c(1, 6), top = 2) %>%
+#    setIDVar(name = "territories", columns = c(1, 6), rows = 2) %>%
+#    setIDVar(name = "year", columns = c(2, 7)) %>%
+#    setIDVar(name = "commodities", columns = c(1, 6)) %>%
+#    setObsVar(name = "harvested", columns = c(3, 8)) %>%
+#    setObsVar(name = "production", columns = c(4, 9))
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$clusters_vertical)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    clusters =
-#      list(row = c(3, 12), col = 2, height = 8, id = "measured"),
-#    header = list(row = 1),
-#    variables =
-#      list(territories =
-#             list(type = "id", col = 2),
-#           year =
-#             list(type = "id", col = 3),
-#           commodities =
-#             list(type = "id", col = 4),
-#           harvested =
-#             list(type = "measured", unit = "ha", factor = 1, col = 5,
-#                  key = "cluster", value = 1),
-#           production =
-#             list(type = "measured", unit = "t", factor = 1, col = 5,
-#                  key = "cluster", value = 2))))
+#  schema <- setCluster(id = "territories",
+#                       left = 1, top = c(3, 9)) %>%
+#    setIDVar(name = "territories", columns = 1, rows = c(3, 9)) %>%
+#    setIDVar(name = "year", columns = 2) %>%
+#    setIDVar(name = "commodities", columns = 5) %>%
+#    setObsVar(name = "harvested", columns = 6) %>%
+#    setObsVar(name = "production", columns = 7)
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$clusters_observed)
 
 ## ---- eval=FALSE--------------------------------------------------------------
-#  makeSchema(list(
-#    clusters =
-#      list(row = c(1, 8, 8), col = c(1, 1, 4), width = 3, height = 6,
-#           id = "territories"),
-#    meta = list(del = NULL, dec = NULL, na = NULL, types = NULL),
-#    header = list(row = 1, rel = TRUE),
-#    variables =
-#      list(territories =
-#             list(type = "id", row = 1, col = 1, rel = TRUE),
-#           year =
-#             list(type = "id", row = c(3:6), col = 4, dist = TRUE),
-#           commodities =
-#             list(type = "id", col = 1, rel = TRUE),
-#           harvested =
-#             list(type = "measured", unit = "ha", factor = 1,
-#                  col = 2, rel = TRUE),
-#           production =
-#             list(type = "measured", unit = "t", factor = 1,
-#                  col = 3, rel = TRUE))))
+#  schema <- setCluster(id = "observed",
+#                       left = 1, top = c(2, 12)) %>%
+#    setIDVar(name = "territories", columns = 2) %>%
+#    setIDVar(name = "year", columns = 3) %>%
+#    setIDVar(name = "commodities", columns = 5) %>%
+#    setObsVar(name = "harvested", columns = 7, key = "cluster", value = 1) %>%
+#    setObsVar(name = "production", columns = 7, key = "cluster", value = 2)
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$clusters_nested)
+
+## ---- eval=FALSE--------------------------------------------------------------
+#  schema <- setCluster(id = "sublevel",
+#                       group = "territories", member = c(1, 1, 2),
+#                       left = 1, top = c(3, 8, 15)) %>%
+#    setIDVar(name = "territories", columns = 1, rows = c(2, 14)) %>%
+#    setIDVar(name = "sublevel", columns = 1, rows = c(3, 8, 15)) %>%
+#    setIDVar(name = "year", columns = 7) %>%
+#    setIDVar(name = "commodities", columns = 2) %>%
+#    setObsVar(name = "harvested", columns = 5) %>%
+#    setObsVar(name = "production", columns = 6)
+
+## -----------------------------------------------------------------------------
+kable(input <- tabs2shift$clusters_messy)
+
+## ---- eval=FALSE--------------------------------------------------------------
+#  schema <- setCluster(id = "territories",
+#                       left = c(1, 1, 4), top = c(1, 8, 8)) %>%
+#    setIDVar(name = "territories", columns = c(1, 1, 4), rows = c(2, 9, 9)) %>%
+#    setIDVar(name = "year", columns = 4, rows = c(3:6), distinct = TRUE) %>%
+#    setIDVar(name = "commodities", columns = c(1, 1, 4)) %>%
+#    setObsVar(name = "harvested", columns = c(2, 2, 5)) %>%
+#    setObsVar(name = "production", columns = c(3, 3, 6))
+#  
+#  schema_alt <- setCluster(id = "territories",
+#                           left = c(1, 1, 4), top = c(1, 8, 8)) %>%
+#    setIDVar(name = "territories", columns = 1, rows = 2, relative = TRUE) %>%
+#    setIDVar(name = "year", columns = 4, rows = c(3:6), distinct = TRUE) %>%
+#    setIDVar(name = "commodities", columns = 1, relative = TRUE) %>%
+#    setObsVar(name = "harvested", columns = 2, relative = TRUE) %>%
+#    setObsVar(name = "production", columns = 3, relative = TRUE)
+
+## ---- eval=FALSE--------------------------------------------------------------
+#  schema <- setCluster(id = ...,
+#                       left = c(1, 2, 5), top = c(1, 5, 1),
+#                       width = c(3, 5, 2), height = c(4, 5, 3),
+#                       ...) %>%
+#    setIDVar(name = "territories", columns = 1, relative = TRUE) %>%
+#    ...
 

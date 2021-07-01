@@ -9,47 +9,42 @@ reorganise(input = NULL, schema = NULL)
 \arguments{
 \item{input}{[\code{data.frame(1)}]\cr table to reorganise.}
 
-\item{schema}{[\code{symbol(1)}]\cr the schema description for reorganising
-\code{input}.}
+\item{schema}{[\code{symbol(1)}]\cr the schema description of \code{input}.}
 }
 \value{
-A (tidy) table which is the result of employing \code{schema} on
-  \code{input}.
+A (tidy) table which is the result of reorganising \code{input} based
+  on \code{schema}.
 }
 \description{
 This function takes a disorganised messy table and rearranges columns and
-rows into a tidy dataset that can be sorted into the areal database.
+rows into a tidy table based on a schema description.
 }
 \examples{
+# a rather disorganised table with messy clusters and a distinct variable
+(input <- tabs2shift$clusters_messy)
 
-# read in a disorganised messy dataset
-library(readr)
-ds <- system.file("test_datasets", package = "tabshiftr")
-input <- read_csv(file = paste0(ds, "/table13.csv"),
-                  col_names = FALSE, col_types = cols(.default = "c"))
-input
+# put together schema description by ...
+# ... identifying cluster positions
+schema <- setCluster(id = "territories", left = c(1, 1, 4), top = c(1, 8, 8))
 
-# put together schema description (see makeSchema function)
-mySchema <- makeSchema(schema = list(
-  clusters =
-    list(row = c(1, 8, 8), col = c(1, 1, 4), width = 3, height = 6,
-         id = "territories"),
-  header = list(row = 1, rel = TRUE),
-  variables =
-    list(territories =
-           list(type = "id", row = 1, col = 1, rel = TRUE),
-         year =
-           list(type = "id", row = c(3:6), col = 4, dist = TRUE),
-         commodities =
-           list(type = "id", col = 1, rel = TRUE),
-         harvested =
-           list(type = "measured", unit = "ha", factor = 1,
-                col = 2, rel = TRUE),
-         production =
-           list(type = "measured", unit = "t", factor = 1,
-                col = 3, rel = TRUE))
-))
+# ... specifying the cluster ID as id variable (obligatory)
+schema <- schema \%>\%
+    setIDVar(name = "territories", columns = c(1, 1, 4), rows = c(2, 9, 9))
+
+# ... specifying the distinct variable (explicit position)
+schema <- schema \%>\%
+    setIDVar(name = "year", columns = 4, rows = c(3:6), distinct = TRUE)
+
+# ... specifying a tidy variable (by giving the column values)
+schema <- schema \%>\%
+    setIDVar(name = "commodities", columns = c(1, 1, 4))
+
+# ... identifying the (tidy) observed variables
+schema <- schema \%>\%
+    setObsVar(name = "harvested", columns = c(2, 2, 5)) \%>\%
+    setObsVar(name = "production", columns = c(3, 3, 6))
 
 # get the tidy output
-reorganise(input, mySchema)
+reorganise(input, schema)
+
 }
