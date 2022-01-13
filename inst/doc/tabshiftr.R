@@ -9,6 +9,11 @@ options(knitr.kable.NA = '.')
 library(tabshiftr)
 library(knitr)
 
+## ---- eval=F------------------------------------------------------------------
+#  input <- read_csv(file = ...,
+#                    col_names = FALSE,
+#                    col_types = cols(.default = "c"))
+
 ## -----------------------------------------------------------------------------
 kable(input <- tabs2shift$listed_column_wide)
 
@@ -41,11 +46,6 @@ validateSchema(schema = schema, input = input) %>%
 schema # has a pretty print function
 
 reorganise(input = input, schema = schema)
-
-## ---- eval=F------------------------------------------------------------------
-#  input <- read_csv(file = ...,
-#                    col_names = FALSE,
-#                    col_types = cols(.default = "c"))
 
 ## -----------------------------------------------------------------------------
 kable(tabs2shift$tidy)

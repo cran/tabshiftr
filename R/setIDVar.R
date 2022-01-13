@@ -12,20 +12,22 @@
 #' @param columns [\code{integerish(.)}]\cr The column(s) in which the
 #'   \emph{values} of the new variable are recorded.
 #' @param rows [\code{integerish(.)}]\cr In case the variable is in several
-#'   columns, specify here additionally the row in which the names are recorded.
+#'   columns, specify here additionally the row in which the \emph{names} are
+#'   recorded.
 #' @param split [\code{character(1)}]\cr In case the variable is part of a
 #'   compound value, this should be a regular expression that splits the
-#'   respective value off of that compound value.
+#'   respective value off of that compound value. See
+#'   \code{\link[tidyr]{extract}} on how to set up the regular expression.
 #' @param merge [\code{character(1)}]\cr In case a variable is made up of
 #'   several columns, this should be the character string that would connect the
 #'   two columns (e.g., an empty space \code{" "}).
-#' @param relative [\code{logical(1)}]\cr whether or not the values provided in
+#' @param relative [\code{logical(1)}]\cr whether the values provided in
 #'   \code{columns} and \code{rows} are relative to the cluster position(s) or
 #'   whether they refer to the overall table.
-#' @param distinct [\code{logical(1)}]\cr Whether or not the variable is
+#' @param distinct [\code{logical(1)}]\cr whether or not the variable is
 #'   distinct from a cluster. This is the case when the variable is not
 #'   systematically available for all clusters and thus needs to be registered
-#'   separately from the clusters.
+#'   separately from clusters.
 #' @details Please also take a look at the currently suggested strategy to set
 #'   up a \link[=schema]{schema description}.
 #' @return An object of class \code{\link{schema}}.
@@ -44,10 +46,10 @@ setIDVar <- function(schema = NULL, name = NULL, value = NULL, columns = NULL,
   assertClass(x = schema, classes = "schema", null.ok = TRUE)
   assertCharacter(x = name, len = 1, any.missing = FALSE)
   colInt <- testIntegerish(x = columns, lower = 1, min.len = 1, null.ok = TRUE)
-  colList <- testList(x = columns, len = 2)
+  colList <- testList(x = columns, len = 3)
   assert(colInt, colList)
   rowInt <- testIntegerish(x = rows, lower = 1, min.len = 1, null.ok = TRUE)
-  rowList <- testList(x = rows, len = 2)
+  rowList <- testList(x = rows, len = 3)
   assert(rowInt, rowList)
   assertCharacter(x = value, len = 1, any.missing = FALSE, null.ok = TRUE)
   assertCharacter(x = split, len = 1, any.missing = FALSE, null.ok = TRUE)

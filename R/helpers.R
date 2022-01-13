@@ -66,15 +66,17 @@
 #' This function matches id and observed variables and reshapes them accordingly
 #' @param ids list of id variables
 #' @param obs list of observed variables
+#' @param clust list of cluster variables
+#' @param grp list of group variables
 #' @return a symmetric list of variables (all with the same dimensions)
 #' @importFrom checkmate assertSetEqual
 #' @importFrom purrr reduce map_int map set_names
 #' @importFrom tidyr pivot_longer pivot_wider fill separate
-#' @importFrom dplyr distinct select bind_cols
+#' @importFrom dplyr distinct select bind_cols if_any
 #' @importFrom tidyselect all_of everything
 #' @importFrom rlang `:=`
 
-.tidyVars <- function(ids = NULL, obs = NULL){
+.tidyVars <- function(ids = NULL, obs = NULL, clust = NULL, grp = NULL){
 
   outIDs <- ids
   outObs <- obs
@@ -82,7 +84,7 @@
   uniqueIDs <- map(.x = seq_along(ids), .f = function(ix){
     unique(unlist(ids[[ix]]))
   })
-  targetRows <- reduce(lengths(uniqueIDs), `*`)
+  # targetRows <- reduce(lengths(uniqueIDs), `*`)
 
   idCols <- map(.x = seq_along(ids), .f = function(ix){
     names(ids[[ix]])
@@ -92,6 +94,7 @@
   widthObs <- map_int(.x = seq_along(obs), .f = function(ix){
     dim(obs[[ix]])[[2]]
   })
+
   if(!all(1 == widthObs)){
     # if yes, ...
 
@@ -140,71 +143,139 @@
         }
       }
 
-      wideColnames <- wideColnames %>% select(all_of(names(wideID)), everything())
+      if(varName == "listed"){
 
-      # find the correct name by joining via the column names
-      # targetWide <- which(widthIDs %in% tempDim[2])
-      tempColnames <- temp %>% pivot_longer(cols = everything(), names_to = "name", values_to = varName)
-      wideNames <- left_join(tempColnames, wideColnames, by = "name") %>%
-        select(-all_of(varName)) %>%
-        distinct() %>%
-        unite(col = "new", !name, sep = "-_-_", na.rm = TRUE) %>%
-        pivot_wider(names_from = "name") %>%
-        unlist(use.names = FALSE)
+        obsNames <- unique(outObs$listed$key)
+        idNames <- names(ids)
 
-      assertSetEqual(x = length(wideNames), y = tempDim[2])
-      names(temp) <- wideNames
+        equalID <- map(.x = seq_along(outIDs), .f = function(ix){
+          if(tempDim[1] == dim(ids[[ix]])[1]){
+            set_names(outIDs[[ix]], idNames[ix])
+          } else if(all(dim(ids[[ix]]) == c(1, 1))){
+            set_names(list(tibble(!!names(ids[ix]) := rep(ids[[ix]][[1]], tempDim[1]))), names(ids[ix]))
+          }
+        })
 
-      # ... all id variables that have the same length
-      equalID <- map(.x = seq_along(ids), .f = function(ix){
-        if(tempDim[1] == dim(ids[[ix]])[1]){
-          bla <- ids[ix]
-          names(bla[[1]]) <- names(ids[ix])
-          return(bla)
+        if(length(wideID) > 1){
+          wideNames <- wideColnames %>%
+            select(all_of(names(wideID)), everything()) %>%
+            unite(col = "new", !name, sep = "-_-_", na.rm = TRUE) %>%
+            pivot_wider(names_from = "name", values_from = "new") %>%
+            unlist(use.names = FALSE)
+          wideName <- paste0(names(wideID), collapse = "-_-_")
+        } else {
+          wideNames <- unlist(wideID, use.names = FALSE)
+          wideName <- names(wideID)
         }
-      })
-      equalID <- unlist(equalID, recursive = FALSE)
-      temp <- bind_cols(temp, equalID, .name_repair = "minimal")
 
-      # and pivot those into longer form
-      temp <- pivot_longer(data = temp,
-                           cols = all_of(wideNames),
-                           names_to = paste0(names(wideID), collapse = "-_-_"),
-                           values_to = varName) %>%
-        separate(col = paste0(names(wideID), collapse = "-_-_"), into = names(wideID), sep = "-_-_")
+        tempObs <- outObs
+        if(!is.null(wideID)){
+          names(tempObs$listed) <- c("key", wideNames)
+          newObs <- bind_cols(c(equalID, tempObs), .name_repair = "minimal") %>%
+            pivot_longer(cols = all_of(wideNames), names_to = wideName)
+          valueNames <- "value"
+        } else {
+          newObs <- bind_cols(c(equalID, tempObs), .name_repair = "minimal")
+          valueNames <- names(newObs)[!names(newObs) %in% c(idNames, "key")]
+        }
 
-      if(i != 1){
-        newObs <- suppressMessages(temp %>%
-                                     left_join(newObs))
+        dupObs <- newObs %>%
+          pivot_wider(names_from = "key",
+                      values_from = all_of(valueNames),
+                      values_fn = length) %>%
+          mutate(row = row_number()) %>%
+          filter(if_any(all_of(obsNames), ~ . != 1))
+
+        if(dim(dupObs)[1] != 0){
+          warning("rows(", paste0(dupObs$row, collapse = ", "), ") are duplicated.")
+        }
+
+        newObs <- newObs %>%
+          pivot_wider(names_from = "key",
+                      values_from = all_of(valueNames),
+                      values_fn = list)
+
+        if(length(wideID) > 1){
+          newObs <- newObs %>%
+            separate(col = wideName,
+                     into = names(wideID),
+                     sep = "-_-_")
+        }
+
       } else {
-        newObs <- temp
+
+        obsNames <- names(obs)
+        idNames <- names(ids)
+
+        wideColnames <- wideColnames %>% select(all_of(names(wideID)), everything())
+
+        # find the correct name by joining via the column names
+        tempColnames <- temp %>% pivot_longer(cols = everything(), names_to = "name", values_to = varName)
+        wideNames <- left_join(tempColnames, wideColnames, by = "name") %>%
+          select(-all_of(varName)) %>%
+          distinct() %>%
+          unite(col = "new", !name, sep = "-_-_", na.rm = TRUE) %>%
+          pivot_wider(names_from = "name", values_from = "new") %>%
+          unlist(use.names = FALSE)
+
+        assertSetEqual(x = length(wideNames), y = tempDim[2])
+        names(temp) <- wideNames
+
+        # ... all id variables that have the same length
+        equalID <- map(.x = seq_along(ids), .f = function(ix){
+          if(tempDim[1] == dim(ids[[ix]])[1]){
+            bla <- ids[ix]
+            names(bla[[1]]) <- names(ids[ix])
+            return(bla)
+          } else if(all(dim(ids[[ix]]) == c(1, 1))){
+            set_names(list(tibble(!!names(ids[ix]) := rep(ids[[ix]][[1]], tempDim[1]))), names(ids[ix]))
+          }
+        })
+        equalID <- unlist(equalID, recursive = FALSE)
+        temp <- bind_cols(temp, equalID, .name_repair = "minimal")
+
+        # and pivot those into longer form
+        temp <- pivot_longer(data = temp,
+                             cols = all_of(wideNames),
+                             names_to = paste0(names(wideID), collapse = "-_-_"),
+                             values_to = varName) %>%
+          separate(col = paste0(names(wideID), collapse = "-_-_"), into = names(wideID), sep = "-_-_")
+
+        if(i != 1){
+          newObs <- suppressMessages(temp %>%
+                                       left_join(newObs))
+        } else {
+          newObs <- temp
+        }
       }
+
     }
 
+    targetRows <- dim(newObs)[1]
+
     # sort the resulting tibble into the previous lists 'ids' and 'obs'
-    idNames <- names(ids)
-    outIDs <- map(.x = seq_along(ids), .f = function(ix) {
-      newObs[names(ids)[ix]]
+    outIDs <- map(.x = seq_along(idNames), .f = function(ix) {
+      newObs[idNames[ix]]
     })
     names(outIDs) <- idNames
 
-    obsNames <- names(obs)
-    outObs <- map(.x = seq_along(obs), .f = function(ix) {
-      newObs[names(obs)[ix]]
+    outObs <- map(.x = seq_along(obsNames), .f = function(ix) {
+      newObs[obsNames[ix]]
     })
     names(outObs) <- obsNames
 
+  } else {
+    targetRows <- unique(map_int(.x = seq_along(outObs), .f = function(ix){
+      dim(outObs[[ix]])[1]
+    }))
+    assertIntegerish(x = targetRows, len = 1)
   }
-
-  # obsNames <- map(.x = seq_along(obs), .f = function(ix){
-  #   names(obs[[ix]])
-  # })
-  # obsNames <- unique(unlist(obsNames))
 
   # take care of variables that are too wide
   widthsIDs <- map_int(.x = seq_along(outIDs), .f = function(ix){
     dim(outIDs[[ix]])[[2]]
   })
+
   if(!all(1 == widthsIDs)){
 
     wideIDs <- ids[which(widthsIDs != 1)]
@@ -222,9 +293,6 @@
   lengthIDs <- map_int(.x = seq_along(outIDs), .f = function(ix){
     dim(outIDs[[ix]])[[1]]
   })
-  # lengthObs <- map_int(.x = seq_along(obs), .f = function(ix){
-  #   dim(obs[[ix]])[[1]]
-  # })
 
   if(any(lengthIDs != targetRows)){
 
@@ -237,7 +305,39 @@
     }
   }
 
-  return(c(outIDs, outObs))
+  outGrp <- NULL
+  if(!is.null(grp)){
+    dims <- dim(grp[[1]])
+
+    nrRows <- targetRows * length(unique(unlist(grp)))
+
+    if(all(dims == 1)){
+      temp <- tibble(X = rep(unlist(grp, use.names = FALSE), nrRows))
+    } else {
+      temp <- tibble(X = unlist(grp, use.names = FALSE))
+    }
+    outGrp <-  set_names(x = list(temp), nm = names(grp))
+
+  }
+
+  outClust <- NULL
+  if(!is.null(clust)){
+    if(is.list(clust)){
+      dims <- dim(clust[[1]])
+
+      nrRows <- targetRows * length(unique(unlist(clust)))
+
+      if(all(dims == 1)){
+        temp <- tibble(X = rep(unlist(clust, use.names = FALSE), nrRows))
+      } else {
+        temp <- tibble(X = unlist(clust, use.names = FALSE))
+      }
+      outClust <-  set_names(x = list(temp), nm = names(clust))
+
+    }
+  }
+
+  return(c(outGrp, outClust, outIDs, outObs))
 
 }
 
@@ -248,7 +348,7 @@
 #'   used to match in columns.
 #' @param row [\code{list(2)}]\cr the output of the respective .find construct
 #'   used to match in rows.
-#' @return the columns or rows where the evaluated position
+#' @return the columns or rows of the evaluated position
 #' @importFrom checkmate assertNumeric
 #' @importFrom rlang eval_tidy
 #' @importFrom purrr map_int map_lgl
@@ -259,81 +359,79 @@
 
 .eval_find <- function(input = NULL, col = NULL, row = NULL){
 
-
   # in case to look for columns
   if(!is.null(col)){
-    term <- eval_tidy(col$by)
+    if(is.list(col)){
+      term <- eval_tidy(col$by)
 
-    if(is.function(term)){
+      if(is.function(term)){
 
-      # this should probably be written so that header rows are excluded so that
-      # the columns can have their corret data type against which the functions
-      # can test
+        if(!is.null(col$row)){
+          assertNumeric(x = col$row, len = 1, any.missing = FALSE)
+          subset <- input[unique(col$row),]
+        } else {
+          subset <- input
+        }
 
-      # if(!is.null(varProp$row)){
-      #   subset <- input[unique(varProp$row),]
-      # } else {
-      #   subset <- input
-      # }
-      #
-      # # make a subset table that contains numbers when possible
-      # subset <- subset %>%
-      #   mutate(across(everything(), function(x) replace_na(x, 0))) %>%
-      #   mutate(across(.cols = where(function(x) suppressWarnings(!anyNA(as.numeric(x)))), .fns = as.numeric))
-      #
-      # cols <- map_lgl(.x = 1:dim(input)[2], .f = function(ix){
-      #   map(subset[[ix]], term)[[1]]
-      # })
+        # make a subset table that contains numbers when possible
+        subset <- subset %>%
+          mutate(across(.cols = where(function(x) suppressWarnings(!anyNA(as.numeric(x)))), .fns = as.numeric))
 
+        cols <- map_int(.x = 1:dim(input)[2], .f = function(ix){
+          map(subset[,ix], term)[[1]] & !is.na(subset[,ix])[[1]]
+        })
 
-    } else {
-      cols <- map_int(.x = 1:dim(input)[2], .f = function(ix){
-        str_count(string = paste(input[[ix]], collapse = " "), pattern = term)
-      })
+      } else {
+        cols <- map_int(.x = 1:dim(input)[2], .f = function(ix){
+          str_count(string = paste(input[[ix]], collapse = " "), pattern = term)
+        })
+      }
+      out <- rep(seq_along(cols), cols)
     }
-    out <- rep(seq_along(cols), cols)
 
   }
 
   # in case to look for rows
   if(!is.null(row)){
-    term <- eval_tidy(row$by)
+    if(is.list(row)){
+      term <- eval_tidy(row$by)
 
-    if(is.function(term)){
+      if(is.function(term)){
 
-      if(!is.null(row$col)){
-        assertNumeric(x = row$col, len = 1, any.missing = FALSE)
-        subset <- input[,unique(row$col)]
-      } else {
-        subset <- input
-      }
-
-      # make a subset table that contains numbers when possible
-      subset <- subset %>%
-        rownames_to_column() %>%
-        pivot_longer(-rowname, 'variable', 'value') %>%
-        pivot_wider(variable, rowname) %>%
-        select(-variable) %>%
-        mutate(across(.cols = where(function(x) suppressWarnings(!anyNA(as.numeric(x)))), .fns = as.numeric))
-
-      rows <- map_int(.x = 1:dim(subset)[2], .f = function(ix){
-        map(subset[,ix], term)[[1]]
-      })
-    } else {
-      rows <- map_int(.x = 1:dim(input)[1], .f = function(ix){
         if(!is.null(row$col)){
-          if(!is.na(input[ix,row$col])){
-            lookup <- unlist(input[ix,row$col], use.names = FALSE)
-          } else {
-            lookup <- ""
-          }
+          assertNumeric(x = row$col, len = 1, any.missing = FALSE)
+          subset <- input[,unique(row$col)]
         } else {
-          lookup <-input[ix,]
+          subset <- input
         }
-        str_count(string = paste(lookup, collapse = " "), pattern = term)
-      })
+
+        # make a subset table that contains numbers when possible
+        subset <- subset %>%
+          rownames_to_column() %>%
+          pivot_longer(cols = -rowname, names_to = 'variable', values_to = 'value') %>%
+          pivot_wider(id_cols = variable, names_from = rowname, values_from = value) %>%
+          select(-variable) %>%
+          mutate(across(.cols = where(function(x) suppressWarnings(!anyNA(as.numeric(x)))), .fns = as.numeric))
+
+        rows <- map_int(.x = 1:dim(subset)[2], .f = function(ix){
+          map(subset[,ix], term)[[1]]
+        })
+      } else {
+        rows <- map_int(.x = 1:dim(input)[1], .f = function(ix){
+          if(!is.null(row$col)){
+            if(!is.na(input[ix,row$col])){
+              lookup <- unlist(input[ix,row$col], use.names = FALSE)
+            } else {
+              lookup <- ""
+            }
+          } else {
+            lookup <-input[ix,]
+          }
+          str_count(string = paste(lookup, collapse = " "), pattern = term)
+        })
+      }
+      out <- rep(seq_along(rows), rows)
     }
-    out <- rep(seq_along(rows), rows)
 
   }
 
@@ -364,12 +462,20 @@
 
   if(units == 1){
 
+    if(groups){
+      expect_identical(object = x$region, expected = c("group 1", "group 1", "group 1", "group 1"))
+    }
     expect_identical(object = x$territories, expected = c("unit 1", "unit 1", "unit 1", "unit 1"))
     expect_identical(object = x$year, expected = c("year 1", "year 1", "year 2", "year 2"))
     expect_identical(object = x$commodities, expected = c("maize", "soybean", "maize", "soybean"))
     if(is.null(variables)){
-      expect_tibble(x = x, any.missing = FALSE, nrows = 4, ncols = 5)
-      expect_names(x = colnames(x), permutation.of =c("territories", "year", "commodities", "harvested", "production") )
+      if(groups){
+        expect_tibble(x = x, any.missing = FALSE, nrows = 4, ncols = 6)
+        expect_names(x = colnames(x), permutation.of = c("region", "territories", "year", "commodities", "harvested", "production") )
+      } else {
+        expect_tibble(x = x, any.missing = FALSE, nrows = 4, ncols = 5)
+        expect_names(x = colnames(x), permutation.of =c("territories", "year", "commodities", "harvested", "production") )
+      }
       expect_identical(object = x$harvested, expected = c(1121, 1111, 1221, 1211))
       expect_identical(object = x$production, expected = c(1122, 1112, 1222, 1212))
     } else {
@@ -379,15 +485,25 @@
       if(variables == "production") expect_identical(object = x$production, expected = c(1122, 1112, 1222, 1212))
     }
 
-
   } else if(units == 2){
 
-    expect_identical(object = x$territories, expected = c("unit 1", "unit 1", "unit 1", "unit 1", "unit 2", "unit 2", "unit 2", "unit 2"))
+    if(groups){
+      expect_identical(object = x$region, expected = c("group 1", "group 1", "group 1", "group 1", "group 1", "group 1", "group 1", "group 1"))
+      expect_identical(object = x$territories, expected = c("unit 1", "unit 1", "unit 1", "unit 1", "unit 2", "unit 2", "unit 2", "unit 2"))
+    } else {
+      expect_identical(object = x$territories, expected = c("unit 1", "unit 1", "unit 1", "unit 1", "unit 2", "unit 2", "unit 2", "unit 2"))
+    }
     expect_identical(object = x$year, expected = c("year 1", "year 1", "year 2", "year 2", "year 1", "year 1", "year 2", "year 2"))
     expect_identical(object = x$commodities, expected = c("maize", "soybean", "maize", "soybean", "maize", "soybean", "maize", "soybean"))
     if(is.null(variables)){
-      expect_tibble(x = x, any.missing = FALSE, nrows = 8, ncols = 5)
-      expect_names(x = colnames(x), permutation.of =c("territories", "year", "commodities", "harvested", "production") )
+      if(groups){
+        expect_tibble(x = x, any.missing = FALSE, nrows = 8, ncols = 6)
+        expect_names(x = colnames(x), permutation.of = c("region", "territories", "year", "commodities", "harvested", "production") )
+      } else {
+        expect_tibble(x = x, any.missing = FALSE, nrows = 8, ncols = 5)
+        expect_names(x = colnames(x), permutation.of =c("territories", "year", "commodities", "harvested", "production") )
+      }
+
       expect_identical(object = x$harvested, expected = c(1121, 1111, 1221, 1211, 2121, 2111, 2221, 2211))
       expect_identical(object = x$production, expected = c(1122, 1112, 1222, 1212, 2122, 2112, 2222, 2212))
     } else {
@@ -401,8 +517,8 @@
   } else if(units == 3){
 
     if(groups){
-      expect_identical(object = x$territories, expected = c("group 1", "group 1", "group 1", "group 1", "group 1", "group 1", "group 1", "group 1", "group 2", "group 2", "group 2", "group 2"))
-      expect_identical(object = x$sublevel, expected = c("unit 1", "unit 1", "unit 1", "unit 1", "unit 2", "unit 2", "unit 2", "unit 2", "unit 3", "unit 3", "unit 3", "unit 3"))
+      expect_identical(object = x$region, expected = c("group 1", "group 1", "group 1", "group 1", "group 1", "group 1", "group 1", "group 1", "group 2", "group 2", "group 2", "group 2"))
+      expect_identical(object = x$territories, expected = c("unit 1", "unit 1", "unit 1", "unit 1", "unit 2", "unit 2", "unit 2", "unit 2", "unit 3", "unit 3", "unit 3", "unit 3"))
     } else {
       expect_identical(object = x$territories, expected = c("unit 1", "unit 1", "unit 1", "unit 1", "unit 2", "unit 2", "unit 2", "unit 2", "unit 3", "unit 3", "unit 3", "unit 3"))
     }
@@ -411,7 +527,7 @@
     if(is.null(variables)){
       if(groups){
         expect_tibble(x = x, any.missing = FALSE, nrows = 12, ncols = 6)
-        expect_names(x = colnames(x), permutation.of = c("territories", "sublevel", "year", "commodities", "harvested", "production") )
+        expect_names(x = colnames(x), permutation.of = c("region", "territories", "year", "commodities", "harvested", "production") )
       } else {
         expect_tibble(x = x, any.missing = FALSE, nrows = 12, ncols = 5)
         expect_names(x = colnames(x), permutation.of = c("territories", "year", "commodities", "harvested", "production") )

@@ -1,6 +1,6 @@
 Package: tabshiftr
 Title: Reshape Disorganised Messy Data
-Version: 0.3.0
+Version: 0.3.2
 Authors@R: 
     c(person(given = "Steffen",
              family = "Ehrmann",
@@ -28,7 +28,11 @@ Authors@R:
              comment = c(ORCID = "0000-0001-8637-9071")),
       person(given = "Caroline",
              family = "Busse",
-             role = "ctb"))
+             role = "ctb"),
+      person(given = "Tsvetelina",
+             family = "Tomova",
+             role = "ctb",
+             email = "tsvetelina.tomova@gmail.com"))
 Description: Helps the user to build and register schema descriptions of 
     disorganised (messy) tables. Disorganised tables are tables that are 
     not in a topologically coherent form, where packages such as 'tidyr' could 
@@ -44,18 +48,19 @@ Encoding: UTF-8
 LazyData: true
 Imports: checkmate, rlang, tibble, dplyr, tidyr, magrittr, tidyselect,
         testthat, crayon, methods, purrr, stringr
-RoxygenNote: 7.1.1
+RoxygenNote: 7.1.2
 Suggests: knitr, rmarkdown, bookdown, readr, covr
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2021-06-30 15:29:22 UTC; se87kuhe
+Packaged: 2022-01-13 09:39:20 UTC; se87kuhe
 Author: Steffen Ehrmann [aut, cre] (<https://orcid.org/0000-0002-2958-0796>),
   Carsten Meyer [aut] (<https://orcid.org/0000-0003-3927-5856>),
   Abdualmaged Alhemiary [ctb],
   Amelie Haas [ctb],
   Annika Ertel [ctb],
   Arne Rümmler [ctb] (<https://orcid.org/0000-0001-8637-9071>),
-  Caroline Busse [ctb]
+  Caroline Busse [ctb],
+  Tsvetelina Tomova [ctb]
 Maintainer: Steffen Ehrmann <steffen@funroll-loops.de>
 Repository: CRAN
-Date/Publication: 2021-07-01 07:10:02 UTC
+Date/Publication: 2022-01-13 11:20:02 UTC

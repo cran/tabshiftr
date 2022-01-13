@@ -24,7 +24,7 @@
 #'
 #' schema <-
 #'   setIDVar(name = "territories", col = 1) %>%
-#'   setIDVar(name = "year", col = 2) %>%
+#'   setIDVar(name = "year", col = .find("period")) %>%
 #'   setIDVar(name = "commodities", col = 3) %>%
 #'   setObsVar(name = "harvested", col = 5) %>%
 #'   setObsVar(name = "production", col = 6)
@@ -149,14 +149,18 @@ validateSchema <- function(schema = NULL, input = NULL){
     }
 
     if(is.list(varProp$col)){
-      varProp$col <- .eval_find(input = input, col = varProp$col)
+      varProp$col <- .eval_find(input = input, col = varProp$col, row = varProp$row)
     }
 
-    # figure our which rows to filter out
+    # figure out which rows to filter out
     if(!varProp$dist & !varName %in% c(groupID, clusterID)){
       if(varProp$type == "observed"){
         if(is.null(varProp$row)){
-          varProp$row <- clusters$row
+          if(is.null(varProp$key)){
+            varProp$row <- clusters$row
+          } else {
+            varProp$row <- 1
+          }
         }
 
         if(any(varProp$row < topAfterFilter)){
@@ -168,12 +172,6 @@ validateSchema <- function(schema = NULL, input = NULL){
       filter$row <- sort(unique(c(filter$row, varProp$row)))
     }
 
-    # check whether the variable is actually distinct (i.e., outside of clusters) ----
-    if(!varName %in% c(clusterID, groupID)){
-      if(all(varProp$col < clusters$col)){
-        varProp$dist <- TRUE
-      }
-    }
     if(varProp$type == "id" & !is.null(varProp$val)){
       varProp$dist <- TRUE
     }

@@ -21,7 +21,7 @@
 #'
 #' validateSchema(schema = schema, input = input) %>%
 #'    getIDVars(input = input)
-#' @importFrom purrr map set_names
+#' @importFrom purrr map set_names map_dfc
 #' @importFrom dplyr row_number
 #' @importFrom tidyr extract unite
 #' @export
@@ -35,29 +35,12 @@ getIDVars <- function(schema = NULL, input = NULL){
   filter <- schema@filter
 
   idVars <- map(.x = seq_along(variables), .f = function(ix){
-    # unselect those id variables that are also cluster id or group
+    # unselect those id variables that are also cluster or group id
     if(variables[[ix]]$type == "id" & !names(variables)[ix] %in% c(clusters$id, clusters$group)){
       variables[ix]
     }
   })
   idVars <- unlist(idVars, recursive = FALSE)
-
-  # if there are listed observed variables, act as if they were clusters
-  filterRows <- map(.x = seq_along(variables), .f = function(ix){
-    theVar <- variables[[ix]]
-    if(theVar$type == "observed"){
-      if(is.numeric(theVar$key)){
-        which(input[[theVar$key]] %in% theVar$value)
-      }
-    }
-  })
-  if(any(lengths(filterRows) != 0)){
-    listedObs <- TRUE
-    filterRows <- filterRows[lengths(filterRows) != 0]
-    nClusters <- length(filterRows)
-  } else {
-    listedObs <- FALSE
-  }
 
   if(length(idVars) != 0){
 
@@ -66,16 +49,7 @@ getIDVars <- function(schema = NULL, input = NULL){
       for(i in 1:length(idVars)){
 
         tempVar <- idVars[[i]]
-        if(listedObs){
-          if(!is.null(tempVar$row)){
-            tempVar$row <- rep(x = tempVar$row, length.out = nClusters)
-          } else {
-            tempVar$col <- rep(x = tempVar$col, length.out = nClusters)
-          }
-          clusterRows <- filterRows[[ix]]
-        } else {
-          clusterRows <- clusters$row[ix]:(clusters$row[ix]+clusters$height[ix] - 1)
-        }
+        varRow <- clusters$row[ix]:(clusters$row[ix]+clusters$height[ix] - 1)
 
         if(!is.null(tempVar$value)){
           temp <- tibble(X = tempVar$value)
@@ -94,19 +68,31 @@ getIDVars <- function(schema = NULL, input = NULL){
           } else {
 
             if(!is.null(tempVar$merge)){
-              temp <- input[clusterRows, tempVar$col]
+              temp <- input[varRow, tempVar$col]
               theFilter <- filter$row
             } else {
-              temp <- input[clusterRows, tempVar$col[ix]]
-              theFilter <- which(clusterRows %in% filter$row)
+              temp <- input[varRow, tempVar$col[ix]]
+              theFilter <- which(varRow %in% filter$row)
             }
 
           }
 
+          # split ...
           if(!is.null(tempVar$split)){
-            temp <- temp %>%
-              extract(col = 1, into = names(temp), regex = paste0("(", tempVar$split, ")"))
+            # need to distinguish between one and several columns
+            if(dim(temp)[2] == 1){
+              temp <- temp %>%
+                extract(col = 1, into = names(temp), regex = paste0("(", tempVar$split, ")"))
+            } else {
+              temp <- map_dfc(.x = seq_along(temp), .f = function(iy){
+                temp %>%
+                  select(all_of(iy)) %>%
+                  extract(col = 1, into = names(temp)[iy], regex = paste0("(", tempVar$split, ")"))
+              })
+            }
           }
+
+          # ... or merge the variable
           if(!is.null(tempVar$merge)){
             newName <- paste0(names(temp), collapse = tempVar$merge)
             temp <- temp %>%

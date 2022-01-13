@@ -4,7 +4,7 @@
 #' @param schema [\code{schema(1)}]\cr In case this information is added to an
 #'   already existing schema, provide that schema here (overwrites previous
 #'   information).
-#' @param rows [\code{integerish(.)}]\cr the rows to ignore.
+#' @param rows [\code{integerish(.)}]\cr rows that are mentioned here are kept.
 #' @param invert [\code{logical(1)}]\cr whether or not to invert the values
 #'   provided in \code{columns} and \code{rows}.
 #' @return An object of class \code{\link{schema}}.
@@ -19,7 +19,7 @@ setFilter <- function(schema = NULL, rows = NULL, invert = FALSE){
   # assertions ----
   assertClass(x = schema, classes = "schema", null.ok = TRUE)
   rowInt <- testIntegerish(x = rows, lower = 1, min.len = 1, null.ok = TRUE)
-  rowList <- testList(x = rows, len = 2)
+  rowList <- testList(x = rows, len = 3)
   assert(rowInt, rowList)
 
   if(is.null(schema)){
