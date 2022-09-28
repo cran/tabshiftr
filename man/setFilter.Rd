@@ -4,7 +4,7 @@
 \alias{setFilter}
 \title{Set filters}
 \usage{
-setFilter(schema = NULL, rows = NULL, invert = FALSE)
+setFilter(schema = NULL, rows = NULL, columns = NULL, operator = NULL)
 }
 \arguments{
 \item{schema}{[\code{schema(1)}]\cr In case this information is added to an
@@ -13,8 +13,13 @@ information).}
 
 \item{rows}{[\code{integerish(.)}]\cr rows that are mentioned here are kept.}
 
-\item{invert}{[\code{logical(1)}]\cr whether or not to invert the values
-provided in \code{columns} and \code{rows}.}
+\item{columns}{[\code{integerish(.)}]\cr columns that are mentioned here are
+kept.}
+
+\item{operator}{[\code{function(1)}]\cr \code{\link[base]{Logic}} operators
+by which the current filter should be combined with the directly preceeding
+filter; hence this argument is not used in case no other filter was defined
+before it.}
 }
 \value{
 An object of class \code{\link{schema}}.
@@ -23,12 +28,25 @@ An object of class \code{\link{schema}}.
 This function allows to specify additional rules to filter certain rows
 }
 \examples{
-# please check the vignette for examples
+(input <- tabs2shift$messy_rows)
+
+# select rows where there is 'unit 2' in column 1 or 'year 2' in column 2
+schema <-
+  setFilter(rows = .find(by = "unit 2", col = 1)) \%>\%
+  setFilter(rows = .find(by = "year 2", col = 2), operator = `|`) \%>\%
+  setIDVar(name = "territories", columns = 1) \%>\%
+  setIDVar(name = "year", columns = 2) \%>\%
+  setIDVar(name = "commodities", columns = 3) \%>\%
+  setObsVar(name = "harvested", columns = 5) \%>\%
+  setObsVar(name = "production", columns = 6)
+
+reorganise(schema = schema, input = input)
 }
 \seealso{
 Other functions to describe table arrangement: 
 \code{\link{setCluster}()},
 \code{\link{setFormat}()},
+\code{\link{setGroups}()},
 \code{\link{setIDVar}()},
 \code{\link{setObsVar}()}
 }

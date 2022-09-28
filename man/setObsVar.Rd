@@ -29,7 +29,7 @@ information).}
 
 \item{top}{[\code{integerish(.)}]\cr In case the variable is nested in a wide
 identifying variable, specify here additionally the topmost row in which
-the variable \emph{name} sits}
+the variable \emph{name} sits.}
 
 \item{relative}{[\code{logical(1)}]\cr whether or not the values provided in
 \code{columns} and \code{rows} are relative to the cluster position(s) or
@@ -78,6 +78,7 @@ Other functions to describe table arrangement:
 \code{\link{setCluster}()},
 \code{\link{setFilter}()},
 \code{\link{setFormat}()},
+\code{\link{setGroups}()},
 \code{\link{setIDVar}()}
 }
 \concept{functions to describe table arrangement}

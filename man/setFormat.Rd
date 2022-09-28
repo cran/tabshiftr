@@ -4,7 +4,13 @@
 \alias{setFormat}
 \title{Set the specific format of a table}
 \usage{
-setFormat(schema = NULL, decimal = NULL, thousand = NULL, na_values = NULL)
+setFormat(
+  schema = NULL,
+  decimal = NULL,
+  thousand = NULL,
+  na_values = NULL,
+  flags = NULL
+)
 }
 \arguments{
 \item{schema}{[\code{schema(1)}]\cr In case this information is added to an
@@ -19,15 +25,20 @@ interpreted as thousand separator.}
 
 \item{na_values}{[\code{character(.)}]\cr The symbols that should be
 interpreted as \code{NA}.}
+
+\item{flags}{[\code{data.frame(2)}]\cr The typically character based flags
+that should be shaved off of observed variables to make them identifiable
+as numeric values. This must be a data.frame with two columns with names
+\code{flag} and \code{value}.}
 }
 \value{
 An object of class \code{\link{schema}}.
 }
 \description{
-Any table makes some assumptions, which are mostly not explicitly recorded in
-the commonly available table format, about the data. This concerns, for
-example, the symbol(s) that signal "not available" values or the symbol that
-is used as decimal sign.
+Any table makes some assumptions about the data, but they are mostly not
+explicitly recorded in the commonly available table format. This concerns,
+for example, the symbol(s) that signal "not available" values or the symbol
+that is used as decimal sign.
 }
 \details{
 Please also take a look at the currently suggested strategy to set
@@ -40,6 +51,7 @@ Please also take a look at the currently suggested strategy to set
 Other functions to describe table arrangement: 
 \code{\link{setCluster}()},
 \code{\link{setFilter}()},
+\code{\link{setGroups}()},
 \code{\link{setIDVar}()},
 \code{\link{setObsVar}()}
 }

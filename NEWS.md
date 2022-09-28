@@ -1,3 +1,38 @@
+# tabshiftr 0.4.0 - grouping update
+
+- introduction of the function `setGroups()`, which allows to summarize columns and/or rows according to a function. The positions and summarise function here are provided via the new function `.sum()`.
+- now each getter ensures that it only gets things from an already validated schema.
+- for filter and group slots of a schema there is now a new way implemented for storing locations. Each location statement is now a list that contains either `find`, `group` or `position` parameters.
+
+# tabshiftr 0.3.9
+
+- allow several filters to be applied in a separate function and thus for separate columns.
+- allow filtering on columns
+
+# tabshiftr 0.3.8
+
+- allow `.find`ing based on several character strings (that can themselves be regular expressions).
+
+# tabshiftr 0.3.7
+
+- implement code so that duplicated observations in the input table are by default summarized (with a warning)
+
+# tabshiftr 0.3.6
+
+- fix a bug that would not allow to register of two wide identifying variables first the wider, then the narrower wide identifying variable.
+
+# tabshiftr 0.3.5
+
+- fix a bug that would not allow tables that have only one row and implicit variables to be properly reorganized.
+
+# tabshiftr 0.3.4
+
+- incl. handling of flags (character additions to the numeric values of observed variables), which are now extracted into an ancillary column.
+
+# tabshiftr 0.3.3
+
+- fix a bug where the header was not properly recognized when using `setFilter()`.
+
 # tabshiftr 0.3.2
 
 - be more precise in using tidyr
@@ -7,7 +42,7 @@
 # tabshiftr 0.3.1
 
 - various minor bugfixes
-- minor reorganisation of the internal workings
+- minor reorganization of the internal workings
 
 # tabshiftr 0.3.0 - getters update
 

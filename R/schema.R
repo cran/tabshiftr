@@ -92,8 +92,10 @@
 schema <- setClass(Class = "schema",
                    slots = c(clusters = "list",
                              format = "list",
+                             groups = "list",
                              filter = "list",
-                             variables = "list"
+                             variables = "list",
+                             validated = "logical"
                    )
 )
 
@@ -156,8 +158,8 @@ setValidity(Class = "schema", function(object){
     if(length(object@format) == 0){
       errors <- c(errors, "the slot 'format' does not contain any entries.")
     }
-    if(!all(names(object@format) %in% c("del", "dec", "na"))){
-      errors <- c(errors, "'names(schema$format)' must be a permutation of set {del,dec,na}")
+    if(!all(names(object@format) %in% c("del", "dec", "na", "flags"))){
+      errors <- c(errors, "'names(schema$format)' must be a permutation of set {del,dec,na,flags}")
     }
     if(!is.null(object@format$del)){
       if(!is.character(object@format$del)){
@@ -174,11 +176,37 @@ setValidity(Class = "schema", function(object){
         errors <- c(errors, "'schema$format$na' must have a character value.")
       }
     }
-    # if(!is.null(object@format$types)){
-    #   if(!is.character(object@format$types)){
-    #     errors <- c(errors, "'schema$format$types' must have a character value.")
-    #   }
-    # }
+    if(!is.null(object@format$flags)){
+      if(!is.data.frame(object@format$flags)){
+        errors <- c(errors, "'schema$format$flags' must be a data.frame with column names 'flag' and 'value'.")
+      }
+    }
+  }
+
+  if(!.hasSlot(object = object, name = "groups")){
+    errors <- c(errors, "the schema does not have a 'groups' slot.")
+  } else {
+    if(!is.list(object@groups)){
+      errors <- c(errors, "the slot 'groups' is not a list.")
+    }
+    if(!all(names(object@groups) %in% c("rows", "cols", "clusters"))){
+      errors <- c(errors, "'names(schema$groups)' must be a permutation of set {rows,cols,clusters}")
+    }
+    if(!is.null(object@groups$rows)){
+      if(!is.list(object@groups$rows)){
+        errors <- c(errors, "'object@groups$rows' must be a list.")
+      }
+    }
+    if(!is.null(object@groups$cols)){
+      if(!is.list(object@groups$cols)){
+        errors <- c(errors, "'object@groups$cols' must be a list.")
+      }
+    }
+    if(!is.null(object@groups$clusters)){
+      if(!is.list(object@groups$clusters)){
+        errors <- c(errors, "'object@groups$clusters' must be a list.")
+      }
+    }
   }
 
   if(!.hasSlot(object = object, name = "filter")){
@@ -190,8 +218,8 @@ setValidity(Class = "schema", function(object){
     if(length(object@filter) == 0){
       errors <- c(errors, "the slot 'filter' does not contain any entries.")
     }
-    if(!all(names(object@filter) %in% c("row", "col", "invert"))){
-      errors <- c(errors, "'names(schema$filter)' must be a permutation of set {row,col,invert}")
+    if(!all(names(object@filter) %in% c("row", "col"))){
+      errors <- c(errors, "'names(schema$filter)' must be a permutation of set {row,col}")
     }
     if(!is.null(object@filter$row)){
       if(!is.numeric(object@filter$row)){
@@ -258,11 +286,6 @@ setValidity(Class = "schema", function(object){
         if(!all(names(theVariable) %in% c("type", "unit", "factor", "row", "col", "rel", "dist", "key", "value"))){
           errors <- c(errors, paste0("'names(", theName, ")' must be a permutation of set {type,unit,factor,row,col,rel,dist,key,value}"))
         }
-        # if(!is.null(theVariable$unit)){
-        #   if(!is.character(theVariable$unit)){
-        #     errors <- c(errors, paste0("'", theName, "$unit' must have a character value."))
-        #   }
-        # }
         if(!is.null(theVariable$factor)){
           if(!is.numeric(theVariable$factor)){
             errors <- c(errors, paste0("'", theName, "$factor' must have a numeric value."))
@@ -284,11 +307,6 @@ setValidity(Class = "schema", function(object){
         if(!is.logical(theVariable$dist)){
           errors <- c(errors, paste0("'", theName, "$dist' must either be 'TRUE' or 'FALSE'."))
         }
-        # if(!is.null(theVariable$key)){
-        #   if(!is.character(theVariable$key)){
-        #     errors <- c(errors, paste0("'", theName, "$key' must have a character value."))
-        #   }
-        # }
         if(!is.null(theVariable$value)){
           if(theVariable$key == "cluster"){
             if(!rlang::is_integerish(theVariable$value)){
@@ -306,6 +324,15 @@ setValidity(Class = "schema", function(object){
     }
   }
 
+  if(!.hasSlot(object = object, name = "validated")){
+    errors <- c(errors, "the schema does not have a 'validated' slot.")
+  } else {
+    if(!is.logical(object@validated)){
+      errors <- c(errors, "the slot 'validated' is not a logical value.")
+    }
+  }
+
+
   if(length(errors) == 0){
     return(TRUE)
   } else {
@@ -317,6 +344,7 @@ setValidity(Class = "schema", function(object){
 #'
 #' @param object [\code{schema}]\cr the schema to print.
 #' @importFrom crayon yellow
+#' @importFrom rlang is_primitive
 #' @importFrom stringr str_split
 #' @importFrom rlang eval_tidy is_quosure prim_name
 
@@ -357,10 +385,13 @@ setMethod(f = "show",
               filterSpecs <- paste0("")
             } else {
 
-              filterType <- ifelse(filter$invert, "include", "exclude")
-              filterSpecs <- paste0("  filter (", filterType, ")",
-                                    ifelse(!is.null(filter$col), paste0("\n    col: [", paste0(filter$col, collapse = ", "), "]"), ""),
-                                    ifelse(!is.null(filter$row), paste0("\n    row: [", paste0(filter$row, collapse = ", "), "]"), ""), "\n\n")
+              filterSpecs <- paste0("  filter ",
+                                    # ifelse(!is.null(filter$col), paste0("\n    col: [", ifelse(length(filter$col) > 10, paste0(c(filter$col[1:10], "..."), collapse = ", "), paste0(filter$col, collapse = ", ")), "]"), ""),
+                                    paste0(" [",
+                                           ifelse(is.list(filter$row),
+                                                  paste0("by '", as.character(filter$row$by[2]), "' in column ", filter$row$col),
+                                                  paste0("rows ", ifelse(length(filter$row) > 10, paste0(c(filter$row[1:10], "..."), collapse = ", "), paste0(filter$row, collapse = ", ")))),
+                                           "]"), "\n\n")
             }
             cat(filterSpecs)
 
@@ -382,8 +413,10 @@ setMethod(f = "show",
               if(variables[[x]]$type == "id"){
                 if(is.null(variables[[x]]$row)){
                   ""
-                } else if(is_quosure(variables[[x]]$row)){
-                  prim_name(eval_tidy(variables[[x]]$row))
+                } else if(is.list(variables[[x]]$row)){
+                  if(names(variables[[x]]$row) == "find"){
+                    eval_tidy(variables[[x]]$row$find$by)
+                  }
                 } else {
                   temp <- unique(variables[[x]]$row)
                   # make a short sequence of 'theRows'
@@ -413,8 +446,10 @@ setMethod(f = "show",
               if(variables[[x]]$type == "observed"){
                 if(is.null(variables[[x]]$row)){
                   ""
-                } else if(is_quosure(variables[[x]]$row)){
-                  prim_name(eval_tidy(variables[[x]]$row))
+                } else if(is.list(variables[[x]]$row)){
+                  if(names(variables[[x]]$row) == "find"){
+                    eval_tidy(variables[[x]]$row$find$by)
+                  }
                 } else {
                   temp <- unique(variables[[x]]$row)
                   # make a short sequence of 'theRows'
@@ -444,8 +479,15 @@ setMethod(f = "show",
             theCols <- sapply(seq_along(variables), function(x){
               if(is.null(variables[[x]]$col)){
                 ""
-              } else if(is_quosure(variables[[x]]$col)){
-                prim_name(eval_tidy(variables[[x]]$col))
+              } else if(is.list(variables[[x]]$col)){
+                if(names(variables[[x]]$col) == "find"){
+                  temp <- eval_tidy(variables[[x]]$col$find$by)
+                  if(is_primitive(temp)){
+                    prim_name(temp)
+                  } else {
+                    temp
+                  }
+                }
               } else {
                 temp <- unique(variables[[x]]$col)
                 # make a short sequence of 'theRows'
@@ -462,7 +504,7 @@ setMethod(f = "show",
               }
             })
             nCols <- sapply(seq_along(theCols), function(x){
-              ifelse(test = is.null(theCols[[x]]), yes = 0, no = nchar(paste0(theCols[[x]], collapse = ", ")))
+              ifelse(test = is.null(theCols[[x]]) | is.function(theCols[[x]]), yes = 0, no = nchar(paste0(theCols[[x]], collapse = ", ")))
             })
             maxCols <- ifelse(any(nCols > 3), max(nCols), 3)
             if(any(nCols != 0)){

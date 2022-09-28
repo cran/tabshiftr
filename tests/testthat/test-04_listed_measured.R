@@ -1,7 +1,6 @@
 library(tabshiftr)
 library(testthat)
 library(checkmate)
-library(dplyr)
 context("listed")
 
 
@@ -46,8 +45,9 @@ test_that("listed observed variable", {
     setObsVar(name = "production", columns = 7,
               key = 6, value = "production")
 
-  out <- reorganise(input = input, schema = schema)
-  expect_tibble(x = out, nrows = 10, ncols = 5)
+  expect_warning(out <- reorganise(input = input, schema = schema))
+  expect_tibble(x = out, nrows = 8, ncols = 5)
+  expect_true(all(out$production[7:8] == c(4444, 4424)))
 
 })
 

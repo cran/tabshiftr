@@ -35,11 +35,11 @@
 #' # ... after
 #' validateSchema(schema = schema, input = tidyTab)
 #'
-#' @importFrom checkmate assertNames assertClass
+#' @importFrom checkmate assertNames assertClass assertNumeric
 #' @importFrom rlang is_quosure
-#' @importFrom dplyr mutate across
+#' @importFrom dplyr mutate across ungroup n right_join
 #' @importFrom tidyr replace_na everything
-#' @importFrom purrr map_int map_lgl
+#' @importFrom purrr map_int map_lgl map
 #' @importFrom methods new
 #' @export
 
@@ -48,11 +48,13 @@ validateSchema <- function(schema = NULL, input = NULL){
   assertDataFrame(x = input)
   assertClass(x = schema, classes = "schema")
 
-  # 1. complete cluster information ----
-  clusters <- schema@clusters
   filter <- schema@filter
+  groups <- schema@groups
   tabDim <- dim(input)
   variables <- schema@variables
+
+  # 1. complete cluster information ----
+  clusters <- schema@clusters
 
   # set cluster start if it is NULL or a qousure
   if(is.null(clusters$row)){
@@ -93,23 +95,19 @@ validateSchema <- function(schema = NULL, input = NULL){
   clusters$height <- rep(x = clusters$height, length.out = nClusters)
 
 
-  # 2. complete filter ----
-  # evaluate quosure
-  if(is.list(filter$row)){
+  # 2. evaluate filter ----
+  allRows <- 1:dim(input)[1]
+  if(!is.null(filter$row)){
     filter$row <- .eval_find(input = input, row = filter$row)
   }
-
-  if(!filter$invert){
-    if(!is.null(filter$row)){
-      filter$row <- (1:tabDim[1])[-filter$row]
-    }
+  if(!is.null(filter$col)){
+    filter$col <- .eval_find(input = input, col = filter$col)
   }
 
-  topAfterFilter <- min(which(!1:dim(input)[1] %in% filter$row))
 
-  # 3. complete variables ----
-  outsideCluster <- NULL
-  selectRows <- selectCols <- NULL
+  # 3. adjust variables ----
+  outsideCluster <- filterOut <- NULL
+  selectRows <- selectCols <- idCols <- NULL
   clusterID <- clusters$id
   groupID <- clusters$group
 
@@ -128,6 +126,18 @@ validateSchema <- function(schema = NULL, input = NULL){
     varProp <- variables[[i]]
     varName <- names(variables)[i]
 
+    # resolve quosures from grep-ing unknown col/rows ----
+    if(is.list(varProp$row)){
+      varProp$row <- .eval_find(input = input, row = varProp$row)
+
+      # ignore header rows
+      varProp$row <- varProp$row[!varProp$row %in% headerRows]
+    }
+
+    if(is.list(varProp$col)){
+      varProp$col <- .eval_find(input = input, col = varProp$col)
+    }
+
     # check whether the variable has relative values and if so, make them absolute ----
     if(varProp$rel){
       # this might become problematic in case a schema requires several col/row to be set with a relative value
@@ -140,16 +150,15 @@ validateSchema <- function(schema = NULL, input = NULL){
       varProp$rel <- FALSE
     }
 
-    # resolve quosures from grep-ing unkown col/rows ----
-    if(is.list(varProp$row)){
-      varProp$row <- .eval_find(input = input, row = varProp$row)
-
-      # ignore header rows
-      varProp$row <- varProp$row[!varProp$row %in% headerRows]
-    }
-
-    if(is.list(varProp$col)){
-      varProp$col <- .eval_find(input = input, col = varProp$col, row = varProp$row)
+    # check whether the variable is wide ----
+    if(varProp$type == "observed"){
+      isWide <- map_lgl(.x = seq_along(idCols), function(ix){
+        all(varProp$col == idCols[[ix]]) & length(varProp$col) > 1
+      })
+      if(any(isWide) & is.null(varProp$key)){
+        varProp$key <- 0
+        varProp$value <- "harvested"
+      }
     }
 
     # figure out which rows to filter out
@@ -162,18 +171,20 @@ validateSchema <- function(schema = NULL, input = NULL){
             varProp$row <- 1
           }
         }
-
-        if(any(varProp$row < topAfterFilter)){
-          varProp$row[which(varProp$row < topAfterFilter)] <- topAfterFilter
-        }
       }
 
-      # build selectCols and assign it to filter$row
-      filter$row <- sort(unique(c(filter$row, varProp$row)))
+      if(!is.null(varProp$row)){
+        if(is.null(names(filter$row[[1]]))){
+          filterOut <- sort(unique(c(filterOut, varProp$row)))
+        }
+      }
     }
 
-    if(varProp$type == "id" & !is.null(varProp$val)){
-      varProp$dist <- TRUE
+    if(varProp$type == "id"){
+      if(!is.null(varProp$val)){
+        varProp$dist <- TRUE
+      }
+      idCols <- c(idCols, list(varProp$col))
     }
 
     # identify all selected columns ----
@@ -210,21 +221,48 @@ validateSchema <- function(schema = NULL, input = NULL){
       }
     }
 
+    # adapt rows and columns if there are groups ----
+    varProp$row <- .eval_sum(input = input, groups = groups,
+                               data = varProp$row)
+
     variables[[i]] <- varProp
     names(variables)[i] <- varName
   }
 
+
   # 4. remove empty rows ----
   testRows <- input[,selectCols]
   emptyRows <- which(rowSums(is.na(testRows)) == ncol(testRows))
-  filter$row <- sort(unique(c(filter$row, emptyRows)))
 
 
+  # 5. adapt filter and cluster position to groups ----
+  clusters$row <- .eval_sum(input = input, groups = groups,
+                              data = clusters$row)
+  clusters$height <- .eval_sum(input = input, groups = groups,
+                                 data = clusters$height)
+
+  filterOut <- .eval_sum(input = input, groups = groups,
+                           data = filterOut)
+  allRows <- .eval_sum(input = input, groups = groups,
+                         data = allRows)
+
+  if(!is.null(filter$row)){
+    filter$row <- filter$row[filter$row %in% sort(unique(allRows[!allRows %in% c(filterOut, emptyRows)]))]
+    filter$row <- .eval_sum(input = input, groups = groups,
+                              data = filter$row)
+  } else {
+    filter$row <- sort(unique(allRows[!allRows %in% c(filterOut, emptyRows)]))
+  }
+
+
+  # 6. write it all ----
   out <- new(Class = "schema",
              clusters = clusters,
              format = schema@format,
+             groups = schema@groups,
              filter = filter,
-             variables = variables)
+             variables = variables,
+             validated = TRUE)
 
   return(out)
 

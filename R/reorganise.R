@@ -35,13 +35,8 @@
 #' reorganise(input, schema)
 #'
 #' @importFrom checkmate assertDataFrame assertIntegerish
-#' @importFrom dplyr filter_all any_vars bind_rows slice group_by ungroup select
-#'   mutate arrange bind_cols rename arrange_at filter mutate_if left_join
-#'   mutate_all
+#' @importFrom dplyr bind_rows select bind_cols  left_join mutate_all
 #' @importFrom tibble tibble
-#' @importFrom tidyr pivot_longer pivot_wider unnest
-#' @importFrom magrittr %>%
-#' @importFrom rlang set_names
 #' @importFrom purrr reduce map map_int
 #' @export
 
@@ -58,8 +53,8 @@ reorganise <- function(input = NULL, schema = NULL){
   # 1. add missing information in schema ----
   schema <- validateSchema(input = input, schema = schema)
 
-  # 2. select data from cluster specs ----
-  clusters <- getData(input = input, schema = schema)
+  # 2. select data ----
+  input <- getData(input = input, schema = schema)
 
   # if a cluster id has been specified, extract the variable values
   clusterVar <- getClusterVar(input = input, schema = schema)
@@ -105,9 +100,8 @@ reorganise <- function(input = NULL, schema = NULL){
   }
 
   out <- out %>%
-    unnest(cols = c(names(schema@variables))) %>%
-    .updateFormat(schema = schema) %>%
-    select(names(schema@variables))
+    select(names(schema@variables)) %>%
+    .updateFormat(schema = schema)
 
   return(out)
 }

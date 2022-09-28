@@ -1,12 +1,11 @@
-#' Extract clusters
+#' Extract summarised data
 #'
-#' This function extracts clusters of data from a table by applying a schema
-#' description to it.
-#' @param schema [\code{character(1)}]\cr the schema description of
+#' This function extracts data from a table that are summarised by applying a
+#' schema description to it.
+#' @param schema [\code{character(1)}]\cr the (validated) schema description of
 #'   \code{input}.
 #' @param input [\code{character(1)}]\cr table to reorganise.
-#' @return list of the length of number of clusters with clusters cut out from
-#'   the original input
+#' @return a table where columns and rows are summarised
 #' @examples
 #' input <- tabs2shift$clusters_nested
 #' schema <- setCluster(id = "sublevel",
@@ -21,21 +20,85 @@
 #'
 #' validateSchema(schema = schema, input = input) %>%
 #'    getData(input = input)
-#' @importFrom purrr map
+#' @importFrom checkmate assertTRUE
+#' @importFrom dplyr row_number group_by summarise na_if across select mutate
+#'   if_else
+#' @importFrom tibble as_tibble
+#' @importFrom tidyselect everything
+#' @importFrom rlang eval_tidy
 #' @export
 
 getData <- function(schema = NULL, input = NULL){
 
-  clusters <- schema@clusters
-  nClusters <- max(lengths(clusters))
+  assertTRUE(x = schema@validated)
 
-  map(.x = 1:nClusters, .f = function(ix){
+  filter <- schema@filter
+  groups <- schema@groups
 
-    input[
-      clusters$row[ix]:(clusters$row[ix]+clusters$height[ix] - 1),
-      clusters$col[ix]:(clusters$col[ix]+clusters$width[ix] - 1)
-      ]
+  out <- input
 
-  })
+  if(!is.null(groups$rows)){
 
+    isNumeric <- suppressWarnings(out %>%
+      mutate(across(everything(), ~if_else(!is.na(as.numeric(.x)), TRUE, FALSE)))) %>%
+      mutate(ind = as.double(row_number()))
+
+    out <- out %>%
+      mutate(ind = as.double(row_number()))
+    outChar <- outNum <- out
+
+    for(i in seq_along(groups$rows)){
+
+      temp <- groups$rows[[i]]
+      targetRows <- eval_tidy(temp$groups[[1]])
+
+      outChar <- outChar %>%
+        mutate(ind = if_else(ind %in% targetRows, min(targetRows), ind)) %>%
+        group_by(ind) %>%
+        summarise(across(everything(), eval_tidy(temp$by$char))) %>%
+        mutate(across(everything(), ~na_if(x = ., y = "")))
+
+      outNum <- suppressWarnings(outNum %>%
+        mutate(ind = if_else(ind %in% targetRows, min(targetRows), ind)) %>%
+        group_by(ind) %>%
+        mutate(across(everything(), as.numeric)) %>%
+        summarise(across(everything(), eval_tidy(temp$by$num))))
+
+      isNumeric <- isNumeric %>%
+        mutate(ind = if_else(ind %in% targetRows, min(targetRows), ind)) %>%
+        group_by(ind) %>%
+        summarise(across(everything(), ~if_else(any(.x), TRUE, FALSE)))
+
+    }
+
+    dims <- dim(isNumeric); dims[2] <- dims[2]-1
+    isNumeric <- isNumeric %>%
+      select(-ind) %>%
+      unlist()
+    outChar <- outChar %>%
+      select(-ind) %>%
+      unlist()
+    outNum <- outNum %>%
+      select(-ind) %>%
+      unlist()
+
+    outChar[isNumeric] <- as.character(outNum[isNumeric])
+
+    out <- as_tibble(matrix(data = outChar, nrow = dims[1], ncol = dims[2]), .name_repair = "minimal")
+    colnames(out) <- paste0("X", 1:(dims[2]))
+
+  }
+
+  # if(!is.null(groups$cols)){
+  #
+  #   for(i in seq_along(groups$cols)){
+  #
+  #     temp <- groups$cols[[1]]
+  #
+  #   }
+  #
+  # }
+
+
+  return(out)
 }
