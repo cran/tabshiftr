@@ -252,8 +252,8 @@ setValidity(Class = "schema", function(object){
       }
 
       if(theVariable$type == "id"){
-        if(!all(names(theVariable) %in% c("type", "value", "row", "col", "rel", "split", "dist", "merge"))){
-          errors <- c(errors, paste0("'names(", theName, ")' must be a permutation of set {type,value,row,col,rel,split,merge,dist}"))
+        if(!all(names(theVariable) %in% c("type", "value", "row", "col", "split", "dist", "merge"))){
+          errors <- c(errors, paste0("'names(", theName, ")' must be a permutation of set {type,value,row,col,split,merge,dist}"))
         }
         if(!is.null(theVariable$value)){
           if(!is.character(theVariable$value)){
@@ -275,16 +275,13 @@ setValidity(Class = "schema", function(object){
             errors <- c(errors, paste0("'", theName, "$col' must have a numeric value."))
           }
         }
-        if(!is.logical(theVariable$rel)){
-          errors <- c(errors, paste0("'", theName, "$rel' must either be 'TRUE' or 'FALSE'."))
-        }
         if(!is.logical(theVariable$dist)){
           errors <- c(errors, paste0("'", theName, "$dist' must either be 'TRUE' or 'FALSE'."))
         }
 
       } else {
-        if(!all(names(theVariable) %in% c("type", "unit", "factor", "row", "col", "rel", "dist", "key", "value"))){
-          errors <- c(errors, paste0("'names(", theName, ")' must be a permutation of set {type,unit,factor,row,col,rel,dist,key,value}"))
+        if(!all(names(theVariable) %in% c("type", "unit", "factor", "row", "col", "dist", "key", "value"))){
+          errors <- c(errors, paste0("'names(", theName, ")' must be a permutation of set {type,unit,factor,row,col,dist,key,value}"))
         }
         if(!is.null(theVariable$factor)){
           if(!is.numeric(theVariable$factor)){
@@ -300,9 +297,6 @@ setValidity(Class = "schema", function(object){
           if(!(is.numeric(theVariable$col) | testClass(x = theVariable$col, classes = "quosure"))){
             errors <- c(errors, paste0("'", theName, "$col' must have a numeric value."))
           }
-        }
-        if(!is.logical(theVariable$rel)){
-          errors <- c(errors, paste0("'", theName, "$rel' must either be 'TRUE' or 'FALSE'."))
         }
         if(!is.logical(theVariable$dist)){
           errors <- c(errors, paste0("'", theName, "$dist' must either be 'TRUE' or 'FALSE'."))
@@ -451,13 +445,17 @@ setMethod(f = "show",
                     eval_tidy(variables[[x]]$row$find$by)
                   }
                 } else {
-                  temp <- unique(variables[[x]]$row)
-                  # make a short sequence of 'theRows'
-                  dists <- temp - c(temp[1]-1, temp)[-(length(temp)+1)]
-                  if(all(dists == 1) & length(temp) > 1){
-                    paste0(min(temp), ":", max(temp))
+                  if(all(variables[[x]]$value != "{all_rows}")){
+                    temp <- unique(variables[[x]]$row)
+                    # make a short sequence of 'theRows'
+                    dists <- temp - c(temp[1]-1, temp)[-(length(temp)+1)]
+                    if(all(dists == 1) & length(temp) > 1){
+                      paste0(min(temp), ":", max(temp))
+                    } else {
+                      temp
+                    }
                   } else {
-                    temp
+                    ""
                   }
                 }
               } else {
@@ -490,7 +488,7 @@ setMethod(f = "show",
                 }
               } else {
                 temp <- unique(variables[[x]]$col)
-                # make a short sequence of 'theRows'
+                # make a short sequence of 'theCols'
                 if(is.numeric(temp)){
                   dists <- temp - c(temp[1]-1, temp)[-(length(temp)+1)]
                 } else {
@@ -567,14 +565,14 @@ setMethod(f = "show",
             }
 
             # whether variables are relative
-            theRels <- sapply(seq_along(variables), function(x){
-              str_sub(as.character(variables[[x]]$rel), 1, 1)
-            })
-            if(all(theRels == "F")){
+            # theRels <- sapply(seq_along(variables), function(x){
+            #   str_sub(as.character(variables[[x]]$rel), 1, 1)
+            # })
+            # if(all(theRels == "F")){
               included <- c(included, FALSE)
-            } else {
-              included <- c(included, TRUE)
-            }
+            # } else {
+            #   included <- c(included, TRUE)
+            # }
 
             # whether variables are distinct
             theDist <- sapply(seq_along(variables), function(x){
@@ -676,7 +674,7 @@ setMethod(f = "show",
                   var6 <- ""
                 }
                 if(included[8]){
-                  var7 <- paste0(theRels[[i-1]], "     ")
+                  # var7 <- paste0(theRels[[i-1]], "     ")
                 } else {
                   var7 <- ""
                 }

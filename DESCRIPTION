@@ -1,6 +1,6 @@
 Package: tabshiftr
 Title: Reshape Disorganised Messy Data
-Version: 0.4.0
+Version: 0.4.1
 Authors@R: 
     c(person(given = "Steffen",
              family = "Ehrmann",
@@ -48,11 +48,11 @@ Encoding: UTF-8
 LazyData: true
 Imports: checkmate, rlang, tibble, dplyr, tidyr, magrittr, tidyselect,
         testthat, crayon, methods, purrr, stringr
-RoxygenNote: 7.2.1
+RoxygenNote: 7.2.3
 Suggests: knitr, rmarkdown, bookdown, readr, covr
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2022-09-27 13:18:50 UTC; se87kuhe
+Packaged: 2023-01-31 11:54:27 UTC; steff
 Author: Steffen Ehrmann [aut, cre] (<https://orcid.org/0000-0002-2958-0796>),
   Tsvetelina Tomova [ctb],
   Carsten Meyer [aut] (<https://orcid.org/0000-0003-3927-5856>),
@@ -63,4 +63,4 @@ Author: Steffen Ehrmann [aut, cre] (<https://orcid.org/0000-0002-2958-0796>),
   Caroline Busse [ctb]
 Maintainer: Steffen Ehrmann <steffen.ehrmann@posteo.de>
 Repository: CRAN
-Date/Publication: 2022-09-28 23:20:02 UTC
+Date/Publication: 2023-01-31 13:20:02 UTC
